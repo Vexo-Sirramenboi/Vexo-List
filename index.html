@@ -691,7 +691,7 @@ body{
   id="vexoAiFrame"
   data-src="https://vexo-sirramenboi.github.io/Vexo-AI/"
   title="VEXO AI"
-  style="display:block;width:100%;height:calc(100dvh - 150px);min-height:650px;border:0;background:#06090f;"
+  style="display:block;width:100%;height:clamp(520px,calc(100dvh - 150px),820px);min-height:520px;border:0;background:#06090f;"
   loading="lazy"
   allow="clipboard-read; clipboard-write"
 ></iframe>
@@ -2851,6 +2851,10 @@ async function runVirusTotalChecker(){
 </style>
 <script>
 (() => {
+  /* Prevent this entire feature script from being installed more than once. */
+  if(window.__vexoChatFeaturesLoaded)return;
+  window.__vexoChatFeaturesLoaded=true;
+
   "use strict";
 
   const state={
@@ -2958,13 +2962,28 @@ async function runVirusTotalChecker(){
     if(!store){store=document.createElement("div");store.id="vexo-presence-store";store.hidden=true;document.body.appendChild(store);}return store;
   }
 
+  let presenceRefreshBusy=false;
+  let presenceStartedFor=null;
+
   async function refreshPresence(){
-    ensurePresenceStore();
-    const cutoff=new Date(Date.now()-90000).toISOString();
-    const {data}=await db.from("user_presence").select("user_id,last_seen").gt("last_seen",cutoff).limit(2000);
-    const store=document.getElementById("vexo-presence-store");
-    store.innerHTML=(data||[]).map(x=>`<span data-user-id="${esc(x.user_id)}"></span>`).join("");
-    updatePresenceDots();
+    if(presenceRefreshBusy)return;
+    presenceRefreshBusy=true;
+    try{
+      ensurePresenceStore();
+      const cutoff=new Date(Date.now()-90000).toISOString();
+      const {data,error}=await db.from("user_presence").select("user_id,last_seen").gt("last_seen",cutoff).limit(100);
+      if(error){
+        console.warn("VEXO presence refresh:",error.message);
+        return;
+      }
+      const store=document.getElementById("vexo-presence-store");
+      if(store)store.innerHTML=(data||[]).map(x=>`<span data-user-id="${esc(x.user_id)}"></span>`).join("");
+      updatePresenceDots();
+    }catch(error){
+      console.warn("VEXO presence refresh:",error?.message||error);
+    }finally{
+      presenceRefreshBusy=false;
+    }
   }
 
   function updatePresenceDots(){
@@ -2984,15 +3003,42 @@ async function runVirusTotalChecker(){
 
   async function touchPresence(){
     if(!user?.id)return;
-    const {error}=await db.from("user_presence").upsert({user_id:user.id,last_seen:new Date().toISOString()},{onConflict:"user_id"});
-    if(error) console.warn("VEXO presence:",error.message);
+    try{
+      const {error}=await db.from("user_presence").upsert(
+        {user_id:user.id,last_seen:new Date().toISOString()},
+        {onConflict:"user_id"}
+      );
+      if(error)console.warn("VEXO presence:",error.message);
+    }catch(error){
+      console.warn("VEXO presence:",error?.message||error);
+    }
   }
 
   function startPresence(){
+    const uid=user?.id||null;
+    if(!uid){
+      if(state.presenceTimer)clearInterval(state.presenceTimer);
+      state.presenceTimer=null;
+      presenceStartedFor=null;
+      return;
+    }
+
+    // MutationObserver calls hook() whenever the chat UI changes. Do not
+    // restart the presence timer every time that happens.
+    if(presenceStartedFor===uid && state.presenceTimer)return;
+
     if(state.presenceTimer)clearInterval(state.presenceTimer);
-    if(!user?.id)return;
-    touchPresence();refreshPresence();
-    state.presenceTimer=setInterval(()=>{touchPresence();refreshPresence();},30000);
+    presenceStartedFor=uid;
+    void touchPresence();
+    void refreshPresence();
+    state.presenceTimer=setInterval(()=>{
+      if(user?.id!==presenceStartedFor){
+        startPresence();
+        return;
+      }
+      void touchPresence();
+      void refreshPresence();
+    },60000);
   }
 
   function ensureMenu(){
@@ -3069,51 +3115,145 @@ async function runVirusTotalChecker(){
   }
 
   function hook(){
-    const box=document.getElementById("chatMessages"),input=document.getElementById("chatInput");
+    /* Never re-run initialization after the first successful hook. */
+    if(state.hooked)return true;
+
+    const box=document.getElementById("chatMessages");
+    const input=document.getElementById("chatInput");
+
     if(!box||!input)return false;
+
+    /* Mark hooked BEFORE any DOM-changing work happens. */
+    state.hooked=true;
+
     ensureInputMentionBox();
-    if(!state.hooked){
-    state.hooked = true;
-      document.addEventListener("contextmenu",e=>{
-        const row=e.target.closest("#chatMessages .chat-msg");if(!row)return;
-        e.preventDefault();addMessageDataset(row);openMenu(e.clientX,e.clientY,row);
-      });
-      document.addEventListener("click",e=>{
-        const action=e.target.closest("[data-vexo-chat-action]")?.dataset.vexoChatAction;
-        if(action&&state.message){
-          if(action==="edit")editMessage();
-          else if(action==="report")reportMessage();
-          else if(action==="delete")window.deleteChatMessage?.(state.message.id);
-          return;
-        }
-        if(state.menu&&!e.target.closest(".vexo-chat-feature-menu"))closeMenu();
-        const profileTarget=e.target.closest("#chatMessages .chat-msg .chat-user, #chatMessages .chat-msg .chat-avatar, #chatMessages .chat-msg .vexo-avatar-image");
-        if(profileTarget){const row=profileTarget.closest(".chat-msg");if(row)showProfile(row);return;}
-        const mention=e.target.closest(".vexo-chat-feature-mention");
-        if(mention){input.value=(input.value?input.value+" ":"")+mention.textContent+" ";input.focus();}
-        const mentionPick=e.target.closest(".vexo-chat-feature-mention-item");
-        if(mentionPick)chooseMention(Number(mentionPick.dataset.mentionIndex));
-      });
-      document.addEventListener("input",e=>{if(e.target.id==="chatInput")updateMentions();});
-      document.addEventListener("keydown",e=>{
-        if(e.target.id!=="chatInput")return;
-        if(e.key==="Escape"){hideMentions();return;}
-        if(!state.mentionResults.length||!document.getElementById("vexoChatMentionBox")?.classList.contains("show"))return;
-        if(e.key==="ArrowDown"){e.preventDefault();state.mentionIndex=(state.mentionIndex+1)%state.mentionResults.length;updateMentions();}
-        if(e.key==="ArrowUp"){e.preventDefault();state.mentionIndex=(state.mentionIndex-1+state.mentionResults.length)%state.mentionResults.length;updateMentions();}
-        if(e.key==="Enter"){e.preventDefault();chooseMention(state.mentionIndex);}
-      });
-      window.addEventListener("resize",closeMenu);window.addEventListener("scroll",closeMenu,true);
-    }
+
+    document.addEventListener("contextmenu",e=>{
+      const row=e.target.closest("#chatMessages .chat-msg");
+      if(!row)return;
+      e.preventDefault();
+      addMessageDataset(row);
+      openMenu(e.clientX,e.clientY,row);
+    });
+
+    document.addEventListener("click",e=>{
+      const action=e.target.closest("[data-vexo-chat-action]")?.dataset.vexoChatAction;
+
+      if(action&&state.message){
+        if(action==="edit")editMessage();
+        else if(action==="report")reportMessage();
+        else if(action==="delete")window.deleteChatMessage?.(state.message.id);
+        return;
+      }
+
+      if(state.menu&&!e.target.closest(".vexo-chat-feature-menu"))closeMenu();
+
+      const profileTarget=e.target.closest(
+        "#chatMessages .chat-msg .chat-user, #chatMessages .chat-msg .chat-avatar, #chatMessages .chat-msg .vexo-avatar-image"
+      );
+
+      if(profileTarget){
+        const row=profileTarget.closest(".chat-msg");
+        if(row)showProfile(row);
+        return;
+      }
+
+      const mention=e.target.closest(".vexo-chat-feature-mention");
+      if(mention){
+        input.value=(input.value?input.value+" ":"")+mention.textContent+" ";
+        input.focus();
+      }
+
+      const mentionPick=e.target.closest(".vexo-chat-feature-mention-item");
+      if(mentionPick)chooseMention(Number(mentionPick.dataset.mentionIndex));
+    });
+
+    document.addEventListener("input",e=>{
+      if(e.target.id==="chatInput")updateMentions();
+    });
+
+    document.addEventListener("keydown",e=>{
+      if(e.target.id!=="chatInput")return;
+
+      if(e.key==="Escape"){
+        hideMentions();
+        return;
+      }
+
+      if(
+        !state.mentionResults.length ||
+        !document.getElementById("vexoChatMentionBox")?.classList.contains("show")
+      )return;
+
+      if(e.key==="ArrowDown"){
+        e.preventDefault();
+        state.mentionIndex=(state.mentionIndex+1)%state.mentionResults.length;
+        updateMentions();
+      }
+
+      if(e.key==="ArrowUp"){
+        e.preventDefault();
+        state.mentionIndex=(state.mentionIndex-1+state.mentionResults.length)%state.mentionResults.length;
+        updateMentions();
+      }
+
+      if(e.key==="Enter"){
+        e.preventDefault();
+        chooseMention(state.mentionIndex);
+      }
+    });
+
+    window.addEventListener("resize",closeMenu);
+    window.addEventListener("scroll",closeMenu,true);
+
     addMessageDataset(box.querySelector?.(".chat-msg"));
-    indexMessages();decorateMentions();startPresence();
+    indexMessages();
+    decorateMentions();
+    startPresence();
+
     return true;
   }
 
-  const observer=new MutationObserver(()=>{if(document.getElementById("chatMessages"))hook();});
+  /*
+   * Watch the page ONLY until chat has successfully initialized.
+   * Once hook() succeeds, disconnect permanently so admin DOM updates,
+   * presence dots, announcements, security panels, etc. cannot restart it.
+   */
+  const observer=new MutationObserver(()=>{
+    if(state.hooked){
+      observer.disconnect();
+      return;
+    }
+
+    if(
+      document.getElementById("chatMessages") &&
+      document.getElementById("chatInput")
+    ){
+      observer.disconnect();
+      hook();
+    }
+  });
+
   observer.observe(document.body,{childList:true,subtree:true});
+
   document.addEventListener("DOMContentLoaded",()=>setTimeout(hook,300));
-  setTimeout(hook,500);setTimeout(hook,1200);setTimeout(hook,2200);
+  setTimeout(hook,500);
+  setTimeout(hook,1200);
+  setTimeout(hook,2200);
+
+  /* Keep presence correct when an already-open chat changes auth state. */
+  db.auth.onAuthStateChange(()=>{
+    setTimeout(()=>{
+      if(document.getElementById("chatMessages")){
+        if(user?.id){
+          startPresence();
+        }else if(state.presenceTimer){
+          clearInterval(state.presenceTimer);
+          state.presenceTimer=null;
+        }
+      }
+    },0);
+  });
 
   // Keep edits visible immediately to other connected clients.
   db.channel("vexo-chat-features-live")
