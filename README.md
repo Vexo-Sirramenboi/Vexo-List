@@ -1,3 +1,10 @@
+# CURRENTLY DOWN BECAUSE BANDWITH HAS EXCEEDED ITS MAXIMUM QUOTA AND IS GOING BE BACK UP UNTIL 
+
+
+
+
+
+
 # VEXO — Community Link Directory & Discovery Platform
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
