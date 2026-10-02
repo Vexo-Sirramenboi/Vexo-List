@@ -521,9 +521,35 @@ body{
 
 <div class="set-head">Background</div>
 <div class="actions">
-<button class="btn" data-bg="grid">▦ Neon Grid</button>
-<button class="btn" data-bg="plain">▢ Clean</button>
-<button class="btn" data-bg="stars">✦ Deep Space</button>
+<button class="btn" data-bg="grid">Neon Grid</button>
+<button class="btn" data-bg="plain">Clean</button>
+<button class="btn" data-bg="stars">Deep Space</button>
+<button class="btn" data-vbg="midnight-neon">Midnight Neon</button>
+<button class="btn" data-vbg="neon">Neon</button>
+<button class="btn" data-vbg="neon-pink">Neon Pink</button>
+<button class="btn" data-vbg="cyber-ice">Cyber Ice</button>
+<button class="btn" data-vbg="cyber-grid">Cyber Grid</button>
+<button class="btn" data-vbg="synthwave">Synthwave</button>
+<button class="btn" data-vbg="matrix">Matrix</button>
+<button class="btn" data-vbg="snowfall">Snowfall</button>
+<button class="btn" data-vbg="rainy-night">Rainy Night</button>
+<button class="btn" data-vbg="fireflies">Fireflies</button>
+<button class="btn" data-vbg="sakura">Sakura</button>
+<button class="btn" data-vbg="warp">Warp Speed</button>
+<button class="btn" data-vbg="nebula">Nebula</button>
+<button class="btn" data-vbg="bokeh">Bokeh</button>
+<button class="btn" data-vbg="aurora">Aurora</button>
+<button class="btn" data-vbg="ocean">Ocean</button>
+<button class="btn" data-vbg="deep-sea">Deep Sea</button>
+<button class="btn" data-vbg="forest">Forest</button>
+<button class="btn" data-vbg="ember">Ember</button>
+<button class="btn" data-vbg="lava">Lava</button>
+<button class="btn" data-vbg="sunset">Sunset</button>
+<button class="btn" data-vbg="golden-hour">Golden Hour</button>
+<button class="btn" data-vbg="rose-gold">Rose Gold</button>
+<button class="btn" data-vbg="mocha-midnight">Mocha Midnight</button>
+<button class="btn" data-vbg="violet-storm">Violet Storm</button>
+<button class="btn" data-vbg="monochrome">Monochrome</button>
 </div>
 
 <div class="set-head">Accent color</div>
@@ -547,9 +573,9 @@ body{
 
 <div class="set-head">Backup</div>
 <div class="actions">
-<button class="btn" id="exportSettings">⇩ Export settings</button>
-<button class="btn" id="importSettings">⇧ Import settings</button>
-<button class="btn danger" id="resetSettings">↺ Reset all</button>
+<button class="btn" id="exportSettings">Export settings</button>
+<button class="btn" id="importSettings">Import settings</button>
+<button class="btn danger" id="resetSettings">Reset all</button>
 <input type="file" id="importFile" accept="application/json,.json" class="hidden">
 </div>
 
@@ -3835,6 +3861,26 @@ async function runVirusTotalChecker(){
   button.addEventListener("click", load);
 })();
 </script>
+
+<script>
+/* VEXO — extra background buttons (Settings → Background). Append-only. */
+(() => {
+  const btns = () => document.querySelectorAll("[data-vbg]");
+  const all  = () => document.querySelectorAll("[data-bg],[data-vbg]");
+  function mark(){
+    const cur = localStorage.getItem("vexo-bg") || "grid";
+    all().forEach(b => b.classList.toggle("active", (b.dataset.vbg || b.dataset.bg) === cur));
+  }
+  btns().forEach(b => b.addEventListener("click", () => {
+    window.vexoSetBackground?.(b.dataset.vbg);
+    mark();
+    if(typeof toast === "function") toast(b.textContent.trim() + " background enabled");
+  }));
+  document.querySelectorAll("[data-bg]").forEach(b => b.addEventListener("click", () => setTimeout(mark, 0)));
+  mark();
+  setTimeout(mark, 600);
+})();
+</script>
 </body>
 </html>
 
@@ -5376,6 +5422,473 @@ const BLOCKED_WORDS = [
 
   window.addEventListener("DOMContentLoaded", injectChatUI);
   injectChatUI();
+})();
+</script>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- VEXO FRIENDS + PRIVATE DMS ADD-ON                              -->
+<!-- Needs the tables from supabase-friends-dms.sql                 -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<style>
+.vx-tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.vx-tab{position:relative;background:var(--card);border:1px solid var(--line);color:var(--muted);padding:8px 14px;border-radius:10px;font-size:12px;font-weight:700;cursor:pointer;transition:.15s}
+.vx-tab:hover{color:var(--text)}
+.vx-tab.active{color:var(--text);border-color:rgba(124,92,255,.5);background:linear-gradient(135deg,rgba(124,92,255,.25),rgba(25,211,255,.08))}
+.vx-count{display:inline-block;min-width:16px;padding:1px 5px;margin-left:6px;border-radius:999px;background:var(--red,#fb7185);color:#fff;font-size:10px;text-align:center}
+.vx-count:empty,.vx-count.zero{display:none}
+.vx-nav-badge{margin-left:auto;min-width:16px;padding:1px 5px;border-radius:999px;background:var(--red,#fb7185);color:#fff;font-size:10px;font-weight:700;text-align:center}
+.vx-pane{display:none}.vx-pane.show{display:block}
+
+.vx-friends{display:grid;gap:16px}
+.vx-add{display:flex;gap:8px}.vx-add input{flex:1;min-width:0}
+.vx-sec{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:2px 0 8px}
+.vx-list{display:grid;gap:8px}
+.vx-row{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+.vx-av{width:34px;height:34px;border-radius:10px;background:var(--grad);display:grid;place-items:center;font-size:12px;font-weight:800;color:#fff;flex:none;overflow:hidden}
+.vx-av img{width:100%;height:100%;object-fit:cover}
+.vx-name{font-size:13px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vx-row .actions{display:flex;gap:6px;flex:none}
+.vx-empty{padding:14px;text-align:center;color:var(--muted);font-size:12px;border:1px dashed var(--line);border-radius:12px}
+
+.vx-dm{display:grid;grid-template-columns:230px 1fr;height:500px;background:rgba(10,15,28,.65);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
+.vx-dm-side{border-right:1px solid var(--line);overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px}
+.vx-dm-item{display:flex;align-items:center;gap:9px;padding:8px;border-radius:10px;cursor:pointer;border:1px solid transparent}
+.vx-dm-item:hover{background:rgba(124,92,255,.1)}
+.vx-dm-item.active{background:rgba(124,92,255,.18);border-color:rgba(124,92,255,.35)}
+.vx-dm-main{display:flex;flex-direction:column;min-width:0;min-height:0}
+.vx-dm-head{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--line);font-weight:700;font-size:13px}
+.vx-dm-back{display:none}
+.vx-dm-msgs{flex:1;min-height:0;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}
+.vx-dm-none{margin:auto;color:var(--muted);font-size:12px;text-align:center;padding:20px}
+@media (max-width:700px){
+  .vx-dm{grid-template-columns:1fr;height:460px}
+  .vx-dm.thread-open .vx-dm-side{display:none}
+  .vx-dm:not(.thread-open) .vx-dm-main{display:none}
+  .vx-dm-back{display:inline-flex}
+}
+</style>
+
+<script>
+(() => {
+  "use strict";
+  if (window.__vexoSocialLoaded) return;
+  window.__vexoSocialLoaded = true;
+
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]));
+  const say = m => (typeof toast === "function" ? toast(m) : alert(m));
+  const clean = t => window.VEXOChatFilter?.cleanMessage ? window.VEXOChatFilter.cleanMessage(t) : t;
+
+  const S = {
+    tab: "community",
+    friends: [],      // { fid, id }
+    incoming: [],     // { fid, id }
+    outgoing: [],     // { fid, id }
+    profiles: {},     // id -> { id, username, avatar_url }
+    unread: {},       // friendId -> count
+    active: null,     // friendId of open DM thread
+    msgs: [],
+    channel: null,
+    channelUser: null,
+    error: ""
+  };
+
+  const me = () => (typeof user !== "undefined" && user ? user.id : null);
+  const nameOf = id => S.profiles[id]?.username || "Member";
+
+  function avatar(id) {
+    const p = S.profiles[id] || {};
+    const initial = (p.username || "?").charAt(0).toUpperCase();
+    return `<span class="vx-av">${p.avatar_url ? `<img src="${esc(p.avatar_url)}" alt="">` : esc(initial)}</span>`;
+  }
+
+  /* ---------- DATA ---------- */
+  async function loadSocial() {
+    const uid = me();
+    if (!uid) {
+      Object.assign(S, { friends: [], incoming: [], outgoing: [], unread: {}, active: null, msgs: [], error: "" });
+      teardownRealtime();
+      return renderAll();
+    }
+
+    const { data, error } = await db.from("friendships").select("*")
+      .or(`requester_id.eq.${uid},addressee_id.eq.${uid}`);
+
+    if (error) {
+      S.error = /relation|does not exist|schema cache/i.test(error.message)
+        ? "Friends and DMs are not set up yet. Run supabase-friends-dms.sql in your Supabase SQL Editor."
+        : error.message;
+      return renderAll();
+    }
+    S.error = "";
+
+    const others = new Set();
+    S.friends = []; S.incoming = []; S.outgoing = [];
+    (data || []).forEach(r => {
+      const other = r.requester_id === uid ? r.addressee_id : r.requester_id;
+      others.add(other);
+      const item = { fid: r.id, id: other };
+      if (r.status === "accepted") S.friends.push(item);
+      else if (r.addressee_id === uid) S.incoming.push(item);
+      else S.outgoing.push(item);
+    });
+
+    if (others.size) {
+      const { data: profs } = await db.from("profiles").select("id,username,avatar_url").in("id", [...others]);
+      (profs || []).forEach(p => S.profiles[p.id] = p);
+    }
+    S.friends.sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
+
+    const { data: unr } = await db.from("direct_messages").select("sender_id").eq("recipient_id", uid).is("read_at", null);
+    S.unread = {};
+    (unr || []).forEach(r => S.unread[r.sender_id] = (S.unread[r.sender_id] || 0) + 1);
+    if (S.active) delete S.unread[S.active];
+
+    setupRealtime();
+    renderAll();
+  }
+
+  async function sendRequest() {
+    const input = $("vxAddInput");
+    const uid = me();
+    if (!uid) return say("Sign in to add friends.");
+    const name = (input?.value || "").trim();
+    if (!name) return;
+
+    const safe = name.replace(/[\\%_]/g, c => "\\" + c);
+    const { data: target } = await db.from("profiles").select("id,username,avatar_url").ilike("username", safe).limit(1).maybeSingle();
+    if (!target) return say(`No member named "${name}".`);
+    if (target.id === uid) return say("You can't add yourself.");
+    S.profiles[target.id] = target;
+
+    if (S.friends.some(f => f.id === target.id)) return say(`You're already friends with ${target.username}.`);
+    if (S.outgoing.some(f => f.id === target.id)) return say("Request already sent.");
+
+    const theirs = S.incoming.find(f => f.id === target.id);
+    if (theirs) { await acceptRequest(theirs.fid); input.value = ""; return; }
+
+    const { error } = await db.from("friendships").insert({ requester_id: uid, addressee_id: target.id, status: "pending" });
+    if (error) return say("Could not send request: " + error.message);
+    input.value = "";
+    say(`Friend request sent to ${target.username}.`);
+    loadSocial();
+  }
+
+  async function acceptRequest(fid) {
+    const { error } = await db.from("friendships").update({ status: "accepted" }).eq("id", fid);
+    if (error) return say("Could not accept: " + error.message);
+    say("Friend added.");
+    loadSocial();
+  }
+
+  async function removeFriendship(fid, msg) {
+    const { error } = await db.from("friendships").delete().eq("id", fid);
+    if (error) return say("Failed: " + error.message);
+    if (msg) say(msg);
+    loadSocial();
+  }
+
+  /* ---------- DMs ---------- */
+  async function openThread(friendId) {
+    const uid = me();
+    if (!uid) return;
+    S.active = friendId;
+    delete S.unread[friendId];
+    S.msgs = [];
+    renderDms();
+    updateBadges();
+
+    const { data, error } = await db.from("direct_messages").select("*")
+      .or(`and(sender_id.eq.${uid},recipient_id.eq.${friendId}),and(sender_id.eq.${friendId},recipient_id.eq.${uid})`)
+      .order("created_at", { ascending: true }).limit(100);
+
+    if (S.active !== friendId) return;
+    if (error) { say("Could not load messages: " + error.message); return; }
+    S.msgs = data || [];
+    renderThread();
+
+    await db.from("direct_messages").update({ read_at: new Date().toISOString() })
+      .eq("recipient_id", uid).eq("sender_id", friendId).is("read_at", null);
+  }
+
+  async function sendDm(e) {
+    e.preventDefault();
+    const uid = me(), input = $("vxDmInput"), btn = $("vxDmSend");
+    const raw = input?.value.trim();
+    if (!uid || !S.active || !raw) return;
+
+    const text = clean(raw).slice(0, 500);
+    if (!text.trim()) return;
+    const censored = text !== raw;
+
+    input.value = "";
+    if (btn) btn.disabled = true;
+    const { data, error } = await db.from("direct_messages")
+      .insert({ sender_id: uid, recipient_id: S.active, content: text }).select().single();
+    if (btn) btn.disabled = false;
+
+    if (error) { input.value = raw; return say("Message failed: " + error.message); }
+    if (censored) say("Some words were automatically censored.");
+    pushMsg(data);
+  }
+
+  function pushMsg(m) {
+    if (!m || S.msgs.some(x => x.id === m.id)) return;
+    S.msgs.push(m);
+    renderThread();
+  }
+
+  async function deleteDm(id) {
+    if (!confirm("Delete this message?")) return;
+    const { error } = await db.from("direct_messages").delete().eq("id", id);
+    if (error) return say("Failed: " + error.message);
+    S.msgs = S.msgs.filter(m => m.id !== id);
+    renderThread();
+  }
+
+  /* ---------- REALTIME ---------- */
+  function teardownRealtime() {
+    if (S.channel) { try { db.removeChannel(S.channel); } catch (_) {} }
+    S.channel = null; S.channelUser = null;
+  }
+
+  function setupRealtime() {
+    const uid = me();
+    if (!uid || (S.channel && S.channelUser === uid)) return;
+    teardownRealtime();
+    S.channelUser = uid;
+
+    S.channel = db.channel("vexo-social-" + uid)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "direct_messages" }, async payload => {
+        const m = payload.new;
+        if (m.recipient_id !== uid && m.sender_id !== uid) return;
+        const other = m.sender_id === uid ? m.recipient_id : m.sender_id;
+
+        if (S.active === other) {
+          pushMsg(m);
+          if (m.recipient_id === uid) {
+            db.from("direct_messages").update({ read_at: new Date().toISOString() }).eq("id", m.id);
+          }
+        } else if (m.recipient_id === uid) {
+          S.unread[other] = (S.unread[other] || 0) + 1;
+          if (!S.profiles[other]) {
+            const { data } = await db.from("profiles").select("id,username,avatar_url").eq("id", other).maybeSingle();
+            if (data) S.profiles[other] = data;
+          }
+          say(`New message from ${nameOf(other)}`);
+          renderAll();
+        }
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "direct_messages" }, payload => {
+        const id = payload.old?.id;
+        if (id && S.msgs.some(m => m.id === id)) { S.msgs = S.msgs.filter(m => m.id !== id); renderThread(); }
+      })
+      .on("postgres_changes", { event: "*", schema: "public", table: "friendships" }, payload => {
+        const r = payload.new?.id ? payload.new : payload.old;
+        if (r && (r.requester_id === uid || r.addressee_id === uid || !r.requester_id)) {
+          if (payload.eventType === "INSERT" && payload.new.addressee_id === uid) {
+            say("You have a new friend request.");
+          }
+          loadSocial();
+        }
+      })
+      .subscribe();
+  }
+
+  /* ---------- RENDER ---------- */
+  function updateBadges() {
+    const unread = Object.values(S.unread).reduce((a, b) => a + b, 0);
+    const reqs = S.incoming.length;
+    const set = (id, n) => { const el = $(id); if (el) { el.textContent = n || ""; el.classList.toggle("zero", !n); } };
+    set("vxCountFriends", reqs);
+    set("vxCountDms", unread);
+
+    const navBtn = document.querySelector('.nav [data-page="chat"]');
+    if (navBtn) {
+      let b = navBtn.querySelector(".vx-nav-badge");
+      const total = unread + reqs;
+      if (total && !b) { b = document.createElement("span"); b.className = "vx-nav-badge"; navBtn.appendChild(b); }
+      if (b) { if (total) b.textContent = total; else b.remove(); }
+    }
+  }
+
+  function gate(html) {
+    if (!me()) return `<div class="vx-empty">Sign in to use friends and private messages.</div>`;
+    if (S.error) return `<div class="vx-empty">${esc(S.error)}</div>`;
+    return html;
+  }
+
+  function renderFriends() {
+    const el = $("vxPaneFriends");
+    if (!el) return;
+
+    const row = (item, buttons) => `
+      <div class="vx-row">${avatar(item.id)}<span class="vx-name">${esc(nameOf(item.id))}</span>
+        <div class="actions">${buttons}</div></div>`;
+
+    const incoming = S.incoming.map(i => row(i,
+      `<button class="btn mini primary" data-vx="accept" data-fid="${esc(i.fid)}">Accept</button>
+       <button class="btn mini" data-vx="decline" data-fid="${esc(i.fid)}">Decline</button>`)).join("");
+    const outgoing = S.outgoing.map(i => row(i,
+      `<button class="btn mini" data-vx="cancel" data-fid="${esc(i.fid)}">Cancel</button>`)).join("");
+    const friends = S.friends.map(i => row(i,
+      `<button class="btn mini primary" data-vx="dm" data-id="${esc(i.id)}">Message</button>
+       <button class="btn mini danger" data-vx="unfriend" data-fid="${esc(i.fid)}" data-id="${esc(i.id)}">Remove</button>`)).join("");
+
+    el.innerHTML = gate(`
+      <div class="vx-friends">
+        <div>
+          <div class="vx-sec">Add a friend</div>
+          <div class="vx-add">
+            <input class="input" id="vxAddInput" placeholder="Enter their exact username" maxlength="32" autocomplete="off">
+            <button class="btn primary" data-vx="add">Send request</button>
+          </div>
+        </div>
+        ${S.incoming.length ? `<div><div class="vx-sec">Requests (${S.incoming.length})</div><div class="vx-list">${incoming}</div></div>` : ""}
+        <div>
+          <div class="vx-sec">Friends (${S.friends.length})</div>
+          <div class="vx-list">${friends || `<div class="vx-empty">No friends yet. Send a request above.</div>`}</div>
+        </div>
+        ${S.outgoing.length ? `<div><div class="vx-sec">Sent requests</div><div class="vx-list">${outgoing}</div></div>` : ""}
+      </div>`);
+  }
+
+  function renderDms() {
+    const el = $("vxPaneDms");
+    if (!el) return;
+
+    if (!me() || S.error) { el.innerHTML = gate(""); return; }
+    if (!S.friends.length) { el.innerHTML = `<div class="vx-empty">Add a friend first, then you can message them here.</div>`; return; }
+
+    const side = S.friends.map(f => `
+      <div class="vx-dm-item ${S.active === f.id ? "active" : ""}" data-vx="open" data-id="${esc(f.id)}">
+        ${avatar(f.id)}<span class="vx-name">${esc(nameOf(f.id))}</span>
+        ${S.unread[f.id] ? `<span class="vx-count">${S.unread[f.id]}</span>` : ""}
+      </div>`).join("");
+
+    const main = S.active ? `
+      <div class="vx-dm-head">
+        <button class="btn mini vx-dm-back" data-vx="back">Back</button>
+        ${avatar(S.active)}<span>${esc(nameOf(S.active))}</span>
+      </div>
+      <div class="vx-dm-msgs" id="vxThread"></div>
+      <form class="chat-input-bar" id="vxDmForm">
+        <input class="input" id="vxDmInput" placeholder="Message ${esc(nameOf(S.active))}..." maxlength="500" autocomplete="off" required>
+        <button class="btn primary" type="submit" id="vxDmSend">Send</button>
+      </form>` : `<div class="vx-dm-none">Pick a friend to start chatting.</div>`;
+
+    el.innerHTML = `<div class="vx-dm ${S.active ? "thread-open" : ""}"><div class="vx-dm-side">${side}</div><div class="vx-dm-main">${main}</div></div>`;
+    $("vxDmForm")?.addEventListener("submit", sendDm);
+    if (S.active) renderThread();
+  }
+
+  function renderThread() {
+    const box = $("vxThread");
+    if (!box) return;
+    if (!S.msgs.length) { box.innerHTML = `<div class="vx-dm-none">No messages yet. Say hi!</div>`; return; }
+    const uid = me();
+    box.innerHTML = S.msgs.map(m => {
+      const self = m.sender_id === uid;
+      const t = new Date(m.created_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+      return `<div class="chat-msg ${self ? "self" : ""}">
+        <div class="chat-bubble">
+          <div class="chat-meta"><span class="chat-time">${esc(t)}</span>
+            ${self ? `<button class="chat-delete-btn" data-vx="delmsg" data-id="${esc(m.id)}" title="Delete message">✕</button>` : ""}
+          </div>
+          <div class="chat-text">${esc(clean(m.content))}</div>
+        </div></div>`;
+    }).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function renderAll() {
+    renderFriends();
+    renderDms();
+    updateBadges();
+  }
+
+  function setTab(tab) {
+    S.tab = tab;
+    document.querySelectorAll("#vxTabs .vx-tab").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+    $("vxPaneCommunity")?.classList.toggle("show", tab === "community");
+    $("vxPaneFriends")?.classList.toggle("show", tab === "friends");
+    $("vxPaneDms")?.classList.toggle("show", tab === "dms");
+    if (tab !== "community") loadSocial();
+  }
+
+  /* ---------- UI INJECTION ---------- */
+  function enhance() {
+    const sec = $("chatPage");
+    if (!sec || sec.dataset.vxSocial) return !!sec?.dataset.vxSocial;
+    const panel = sec.querySelector(".panel");
+    const container = sec.querySelector(".chat-container");
+    if (!panel || !container) return false;
+    sec.dataset.vxSocial = "1";
+
+    const tabs = document.createElement("div");
+    tabs.className = "vx-tabs"; tabs.id = "vxTabs";
+    tabs.innerHTML = `
+      <button class="vx-tab active" data-tab="community">Community</button>
+      <button class="vx-tab" data-tab="friends">Friends<span class="vx-count zero" id="vxCountFriends"></span></button>
+      <button class="vx-tab" data-tab="dms">Messages<span class="vx-count zero" id="vxCountDms"></span></button>`;
+
+    const community = document.createElement("div");
+    community.id = "vxPaneCommunity"; community.className = "vx-pane show";
+    container.parentNode.insertBefore(community, container);
+    community.appendChild(container);
+
+    const friends = document.createElement("div");
+    friends.id = "vxPaneFriends"; friends.className = "vx-pane";
+    const dms = document.createElement("div");
+    dms.id = "vxPaneDms"; dms.className = "vx-pane";
+
+    community.parentNode.insertBefore(tabs, community);
+    community.after(friends, dms);
+
+    tabs.addEventListener("click", e => {
+      const b = e.target.closest(".vx-tab"); if (b) setTab(b.dataset.tab);
+    });
+
+    sec.addEventListener("click", e => {
+      const t = e.target.closest("[data-vx]"); if (!t) return;
+      const a = t.dataset.vx, fid = t.dataset.fid, id = t.dataset.id;
+      if (a === "add") sendRequest();
+      else if (a === "accept") acceptRequest(fid);
+      else if (a === "decline") removeFriendship(fid, "Request declined.");
+      else if (a === "cancel") removeFriendship(fid, "Request cancelled.");
+      else if (a === "unfriend") { if (confirm(`Remove ${nameOf(id)} from your friends?`)) { if (S.active === id) S.active = null; removeFriendship(fid, "Friend removed."); } }
+      else if (a === "dm") { setTab("dms"); openThread(id); }
+      else if (a === "open") openThread(id);
+      else if (a === "back") { S.active = null; renderDms(); }
+      else if (a === "delmsg") deleteDm(id);
+    });
+    sec.addEventListener("keydown", e => {
+      if (e.key === "Enter" && e.target.id === "vxAddInput") { e.preventDefault(); sendRequest(); }
+    });
+
+    /* Refresh whenever the chat page is opened */
+    new MutationObserver(() => {
+      if (!sec.classList.contains("hidden")) loadSocial();
+    }).observe(sec, { attributes: true, attributeFilter: ["class"] });
+
+    renderAll();
+    return true;
+  }
+
+  function boot() {
+    if (enhance()) return;
+    const obs = new MutationObserver(() => { if (enhance()) obs.disconnect(); });
+    obs.observe(document.body, { childList: true, subtree: true });
+  }
+
+  /* Keep in sync with sign in / sign out */
+  try {
+    db.auth.onAuthStateChange(() => setTimeout(() => { S.active = null; loadSocial(); }, 600));
+  } catch (_) {}
+
+  window.addEventListener("DOMContentLoaded", boot);
+  boot();
+  setTimeout(loadSocial, 1500);
 })();
 </script>
 
@@ -7108,7 +7621,10 @@ const BLOCKED_WORDS = [
     {name:"Nebula",mode:"nebula",accent:"#a855f7",accent2:"#ec4899",bg:"#04030c",desc:"Drifting space clouds and stars."},
     {name:"Lava",mode:"lava",accent:"#ef4444",accent2:"#f97316",bg:"#1a0806",desc:"Molten glow with rising embers."},
     {name:"Deep Sea",mode:"deep-sea",accent:"#14b8a6",accent2:"#22d3ee",bg:"#021822",desc:"Dark water, bubbles and light rays."},
-    {name:"Golden Hour",mode:"golden-hour",accent:"#f59e0b",accent2:"#fde68a",bg:"#2a1809",desc:"Warm amber sunlight glow."}
+    {name:"Golden Hour",mode:"golden-hour",accent:"#f59e0b",accent2:"#fde68a",bg:"#2a1809",desc:"Warm amber sunlight glow."},
+    {name:"Sakura",mode:"sakura",accent:"#f9a8c9",accent2:"#c084fc",bg:"#241020",desc:"Falling cherry-blossom petals."},
+    {name:"Warp Speed",mode:"warp",accent:"#6366f1",accent2:"#22d3ee",bg:"#02030a",desc:"Stars streaking past at light speed."},
+    {name:"Bokeh",mode:"bokeh",accent:"#a855f7",accent2:"#38bdf8",bg:"#150b2a",desc:"Soft glowing light orbs."}
   ];
 
   const ORIGINAL_MODES = ["grid","plain","stars"];
