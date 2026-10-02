@@ -2946,6 +2946,32 @@ async function runVirusTotalChecker(){
     if(m){row.dataset.vexoUserId=m.user_id||"";row.dataset.vexoUsername=m.username||row.dataset.vexoUsername||"Guest";}
   }
 
+  /* Resolve the author of a chat row even if it was not in the initial index
+     (new realtime messages, messages older than the 500 loaded, re-rendered rows). */
+  async function resolveRowUser(row){
+    addMessageDataset(row);
+    if(row.dataset.vexoUserId)return row.dataset.vexoUserId;
+    const id=(row.id||"").replace(/^chat-msg-/i,"");
+    if(id){
+      try{
+        const {data}=await db.from("messages").select("id,user_id,username").eq("id",id).maybeSingle();
+        if(data){
+          state.messageUsers.set(String(data.id),data);
+          if(data.user_id){row.dataset.vexoUserId=data.user_id;row.dataset.vexoUsername=data.username||row.dataset.vexoUsername||"";return data.user_id;}
+        }
+      }catch(e){console.warn("VEXO message lookup:",e);}
+    }
+    /* Last resort: match the displayed name against profiles */
+    const nm=(row.dataset.vexoUsername||row.querySelector(".chat-user")?.textContent||"").trim();
+    if(nm&&nm.toLowerCase()!=="guest"){
+      try{
+        const {data}=await db.from("profiles").select("id").ilike("username",nm).limit(1).maybeSingle();
+        if(data?.id){row.dataset.vexoUserId=data.id;return data.id;}
+      }catch(e){console.warn("VEXO profile-by-name lookup:",e);}
+    }
+    return "";
+  }
+
   async function getProfile(userId,fallbackName){
     if(!userId)return {id:null,username:fallbackName||"Guest"};
     const {data}=await db.from("profiles").select("id,username,avatar_url,bio").eq("id",userId).maybeSingle();
@@ -3089,8 +3115,8 @@ async function runVirusTotalChecker(){
   }
 
   async function showProfile(row){
-    const uid=row.dataset.vexoUserId;
     const name=row.dataset.vexoUsername||row.querySelector(".chat-user")?.textContent||"Guest";
+    const uid=await resolveRowUser(row);
     if(!uid){notify("This user does not have a profile record yet.");return;}
     const p=await getProfile(uid,name),online=presenceOnline(uid);
     const wrap=document.createElement("div");wrap.className="vexo-chat-feature-profile";
@@ -7072,7 +7098,17 @@ const BLOCKED_WORDS = [
     {name:"Monochrome",mode:"monochrome",accent:"#d4d4d8",accent2:"#a1a1aa",bg:"#070709",desc:"Minimal grayscale digital atmosphere."},
     {name:"Violet Storm",mode:"violet-storm",accent:"#a855f7",accent2:"#6366f1",bg:"#070514",desc:"Stormy purple-indigo lighting."},
     {name:"Aurora",mode:"aurora",accent:"#22c55e",accent2:"#22d3ee",bg:"#030a0a",desc:"Animated green-cyan aurora ambience."},
-    {name:"Cyber Grid",mode:"cyber-grid",accent:"#00f5d4",accent2:"#22d3ee",bg:"#03060a",desc:"Stronger futuristic grid and glow."}
+    {name:"Cyber Grid",mode:"cyber-grid",accent:"#00f5d4",accent2:"#22d3ee",bg:"#03060a",desc:"Stronger futuristic grid and glow."},
+    {name:"Synthwave",mode:"synthwave",accent:"#ff3f9d",accent2:"#19d3ff",bg:"#2a0845",desc:"Retro sunset, neon horizon grid."},
+    {name:"Matrix",mode:"matrix",accent:"#00ff78",accent2:"#00c853",bg:"#010a04",desc:"Falling green digital rain."},
+    {name:"Snowfall",mode:"snowfall",accent:"#7dd3fc",accent2:"#e0f2fe",bg:"#0b1a2c",desc:"Calm night with drifting snow."},
+    {name:"Fireflies",mode:"fireflies",accent:"#a3e635",accent2:"#22c55e",bg:"#071409",desc:"Glowing fireflies in a dark forest."},
+    {name:"Rainy Night",mode:"rainy-night",accent:"#6b8bd0",accent2:"#38bdf8",bg:"#0c1220",desc:"Moody city rain, cool blue tones."},
+    {name:"Sunset",mode:"sunset",accent:"#f97316",accent2:"#ec4899",bg:"#4a1942",desc:"Purple-to-orange dusk gradient."},
+    {name:"Nebula",mode:"nebula",accent:"#a855f7",accent2:"#ec4899",bg:"#04030c",desc:"Drifting space clouds and stars."},
+    {name:"Lava",mode:"lava",accent:"#ef4444",accent2:"#f97316",bg:"#1a0806",desc:"Molten glow with rising embers."},
+    {name:"Deep Sea",mode:"deep-sea",accent:"#14b8a6",accent2:"#22d3ee",bg:"#021822",desc:"Dark water, bubbles and light rays."},
+    {name:"Golden Hour",mode:"golden-hour",accent:"#f59e0b",accent2:"#fde68a",bg:"#2a1809",desc:"Warm amber sunlight glow."}
   ];
 
   const ORIGINAL_MODES = ["grid","plain","stars"];
