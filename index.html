@@ -1824,19 +1824,47 @@ window.vexoSetBackground?.(saved);
 
 /* VEXO GEOMETRIC CLICK EFFECT */
 (() => {
+  /* Shape used for every click. Options: "square","diamond","circle","triangle","hexagon"
+     or "mix" to go back to random shapes. */
+  const SHAPE = "diamond";
   const types = ["square","diamond","circle","triangle","hexagon"];
+  const reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const rand = (a,b) => a + Math.random()*(b-a);
+
   document.addEventListener("click", event => {
-    for(let i=0;i<5;i++){
-      const shape=document.createElement("span");
-      shape.className="vexo-click-shape "+types[Math.floor(Math.random()*types.length)];
-      const angle=Math.random()*Math.PI*2, distance=8+Math.random()*24;
-      shape.style.left=(event.clientX+Math.cos(angle)*distance)+"px";
-      shape.style.top=(event.clientY+Math.sin(angle)*distance)+"px";
-      const size=8+Math.random()*14;
-      if(!shape.classList.contains("triangle")){shape.style.width=size+"px";shape.style.height=size+"px";}
-      shape.style.animationDelay=(Math.random()*80)+"ms";
+    const count = Math.floor(rand(6,11));
+    for(let i=0;i<count;i++){
+      const shape = document.createElement("span");
+      const type = SHAPE === "mix" ? types[Math.floor(Math.random()*types.length)] : SHAPE;
+      shape.className = "vexo-click-shape " + type;
+      shape.style.animation = "none";
+      shape.style.left = event.clientX + "px";
+      shape.style.top = event.clientY + "px";
+      shape.style.opacity = "0";
+
+      const size = rand(5,16);
+      if(type !== "triangle"){ shape.style.width = size+"px"; shape.style.height = size+"px"; }
       document.body.appendChild(shape);
-      setTimeout(()=>shape.remove(),900);
+
+      /* Random direction, random distance, and a sideways drift so paths curve a little. */
+      const angle = Math.random()*Math.PI*2;
+      const dist = rand(30,115);
+      const drift = rand(-22,22);
+      const dx = Math.cos(angle)*dist, dy = Math.sin(angle)*dist;
+      const px = -Math.sin(angle)*drift, py = Math.cos(angle)*drift;
+      const spin = rand(-240,240), startRot = rand(0,90);
+      const dur = reduce ? 400 : rand(900,1700);
+      const scaleEnd = rand(0.5,1.4);
+      const at = (t,k,sc) => `translate(-50%,-50%) translate(${dx*t+px*k}px,${dy*t+py*k}px) rotate(${startRot+spin*t}deg) scale(${sc})`;
+
+      const anim = shape.animate([
+        { transform: at(0,0,0.2),  opacity: 0 },
+        { transform: at(0.18,0.3,1), opacity: 1, offset: 0.12 },
+        { transform: at(0.65,1,(1+scaleEnd)/2), opacity: 0.8, offset: 0.55 },
+        { transform: at(1,0.6,scaleEnd), opacity: 0 }
+      ], { duration: dur, delay: rand(0,120), easing: "cubic-bezier(.2,.7,.3,1)", fill: "forwards" });
+      anim.onfinish = () => shape.remove();
+      setTimeout(() => shape.remove(), dur + 400);
     }
   });
 })();
