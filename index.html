@@ -7732,3 +7732,66 @@ const BLOCKED_WORDS = [
   setTimeout(inject,2500);
 })();
 </script>
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- VEXO CHAT HISTORY ORDER FIX — APPEND-ONLY                      -->
+<!-- Loads the NEWEST messages instead of the oldest 60/500.        -->
+<!-- Does not modify any existing code.                             -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<script>
+(() => {
+  "use strict";
+  if (window.__vexoChatOrderFix) return;
+  window.__vexoChatOrderFix = true;
+
+  const FIXED_TABLES = new Set(["messages", "direct_messages"]);
+  const originalFrom = db.from.bind(db);
+
+  function track(builder, state) {
+    if (!builder || (typeof builder !== "object" && typeof builder !== "function")) return builder;
+
+    return new Proxy(builder, {
+      get(target, prop) {
+        /* When the query is awaited, put flipped results back in oldest→newest order. */
+        if (prop === "then") {
+          return (onFulfilled, onRejected) =>
+            target
+              .then(res => {
+                if (state.flip && res && Array.isArray(res.data)) {
+                  res.data = [...res.data].reverse();
+                }
+                return res;
+              })
+              .then(onFulfilled, onRejected);
+        }
+
+        const value = Reflect.get(target, prop, target);
+        if (typeof value !== "function") return value;
+
+        return (...args) => {
+          /* Turn "oldest first + limit" into "newest first + limit". */
+          if (
+            prop === "order" &&
+            args[0] === "created_at" &&
+            args[1] &&
+            args[1].ascending === true
+          ) {
+            state.flip = true;
+            args = [args[0], { ...args[1], ascending: false }];
+          }
+
+          const result = value.apply(target, args);
+          return result && typeof result.then === "function"
+            ? track(result, state)
+            : result;
+        };
+      }
+    });
+  }
+
+  db.from = function (table) {
+    const builder = originalFrom(table);
+    if (!FIXED_TABLES.has(table)) return builder;
+    return track(builder, { flip: false });
+  };
+})();
+</script>
