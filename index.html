@@ -3909,6 +3909,49 @@ async function runVirusTotalChecker(){
   setTimeout(mark, 600);
 })();
 </script>
+
+<!-- VEXO ADMIN MODERATION QUEUE: OPEN LINK BUTTON — APPEND-ONLY -->
+<script>
+(() => {
+  const originalRenderAdminQueue = window.renderAdminQueue;
+
+  if (typeof originalRenderAdminQueue !== "function") return;
+
+  window.renderAdminQueue = async function(...args) {
+    const result = await originalRenderAdminQueue.apply(this, args);
+
+    document.querySelectorAll("#adminQueue .submission").forEach(submission => {
+      const urlEl = submission.querySelector(".submission-url");
+      const actions = submission.querySelector(".submission-actions");
+
+      if (!urlEl || !actions || actions.querySelector(".admin-open-link")) return;
+
+      const url = urlEl.textContent.trim();
+      if (!/^https?:\/\//i.test(url)) return;
+
+      const openBtn = document.createElement("button");
+      openBtn.className = "btn primary admin-open-link";
+      openBtn.type = "button";
+      openBtn.textContent = "Open ↗";
+      openBtn.title = "Open submitted link in a new tab";
+
+      openBtn.addEventListener("click", () => {
+        window.open(url, "_blank", "noopener,noreferrer");
+      });
+
+      actions.insertBefore(openBtn, actions.firstChild);
+    });
+
+    return result;
+  };
+
+  // Re-render once if the Admin Center is already loaded.
+  if (document.getElementById("adminQueue")) {
+    window.renderAdminQueue().catch(() => {});
+  }
+})();
+</script>
+
 </body>
 </html>
 
